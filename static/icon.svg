@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+    <!-- App Icon Background (Tailwind green-700) -->
+    <rect width="512" height="512" rx="112" fill="#15803d"/>
+
+    <!-- Stylized Crop / Wheat Icon -->
+    <g fill="#ffffff">
+        <!-- Central stem -->
+        <rect x="240" y="100" width="32" height="300" rx="16"/>
+
+        <!-- Left leaves -->
+        <path d="M230 180 C140 180 110 90 110 90 C110 90 180 70 240 160 Z"/>
+        <path d="M230 260 C140 260 110 170 110 170 C110 170 180 150 240 240 Z"/>
+        <path d="M230 340 C140 340 110 250 110 250 C110 250 180 230 240 320 Z"/>
+
+        <!-- Right leaves -->
+        <path d="M282 180 C372 180 402 90 402 90 C402 90 332 70 272 160 Z"/>
+        <path d="M282 260 C372 260 402 170 402 170 C402 170 332 150 272 240 Z"/>
+        <path d="M282 340 C372 340 402 250 402 250 C402 250 332 230 272 320 Z"/>
+    </g>
+</svg>

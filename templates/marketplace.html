@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-6 sticky top-20 z-40">
+    <form method="GET" class="flex flex-col md:flex-row gap-2">
+        <input type="text" name="q" placeholder="Search onions, maize..." value="{{ request.args.get('q', '') }}" class="p-3 bg-gray-50 border rounded-lg flex-1 text-sm">
+
+        <div class="flex gap-2">
+            <select name="location" class="p-3 bg-gray-50 border rounded-lg text-sm flex-1 md:w-48 text-gray-700">
+                <option value="">All Locations</option>
+                {% for county in counties %}
+                    <option value="{{ county }}" {% if request.args.get('location') == county %}selected{% endif %}>{{ county }} </option>
+                {% endfor %}
+            </select>
+            <button class="bg-blue-600 text-white px-5 py-3 rounded-lg font-bold text-sm shadow-md active:bg-blue-700">Search</button>
+        </div>
+    </form>
+</div>
+
+<!-- PRODUCT GRID (App style cards) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% for item in items %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col relative">
+        <div class="p-4 flex-1">
+            <div class="flex justify-between items-start mb-1">
+                <h3 class="text-lg font-black text-gray-800">{{ item.name }}</h3>
+                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">{{ item.quantity }} {{ item.unit }} left</span>
+            </div>
+            <p class="text-2xl font-black text-green-600 mb-3">Ksh {{ item.price }} <span class="text-xs font-normal text-gray-500 uppercase">/ {{ item.unit }}</span></p>
+
+            <div class="text-sm text-gray-600 space-y-1">
+                <p>📍 <span class="font-semibold">{{ item.farmer.location }}</span></p>
+                <p>🧑‍🌾 {{ item.farmer.name }}</p>
+                <p>📅 Available: {{ item.date_available }}</p>
+            </div>
+            {% if item.delivery %}
+                <p class="text-xs text-blue-600 bg-blue-50 inline-block px-2 py-1 rounded mt-2 font-bold">🚚 Delivery available</p>
+            {% endif %}
+        </div>
+
+        <!-- VISUAL INDICATOR: Show if already requested -->
+        {% if item.id in requested_items %}
+            <div class="bg-blue-100 text-blue-800 p-2 text-xs font-bold text-center border-t border-blue-200 flex justify-center items-center gap-1">
+                <span>🛍️</span> You requested {{ requested_items[item.id] }} {{ item.unit }}
+            </div>
+            <button onclick="openOrderModal('{{ item.id }}', '{{ item.name }}', '{{ item.quantity }}', '{{ item.unit }}', '{{ item.price }}')" class="w-full bg-blue-50 text-blue-700 p-3 font-bold hover:bg-blue-600 hover:text-white transition-colors">
+                Order More
+            </button>
+        {% else %}
+            <!-- Normal Order Button -->
+            <button onclick="openOrderModal('{{ item.id }}', '{{ item.name }}', '{{ item.quantity }}', '{{ item.unit }}', '{{ item.price }}')" class="w-full bg-green-50 text-green-700 p-3 font-bold border-t border-green-100 hover:bg-green-600 hover:text-white transition-colors">
+                Order This Produce
+            </button>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="col-span-full text-center py-12">
+        <p class="text-5xl mb-3">🔍</p>
+        <p class="text-gray-500 font-medium">No produce found matching your search.</p>
+        <a href="/marketplace" class="text-green-600 font-bold mt-2 inline-block">Clear Filters</a>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- SLIDE-UP ORDER MODAL -->
+<div id="orderModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-end md:items-center justify-center transition-opacity">
+    <div class="bg-white w-full md:w-96 rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+            <h3 class="font-bold text-lg text-gray-800">Place Order</h3>
+            <button onclick="closeOrderModal()" class="text-gray-500 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center font-bold text-xl">&times;</button>
+        </div>
+        <div class="p-5">
+            <div class="mb-4 bg-green-50 p-3 rounded-lg border border-green-100">
+                <p class="font-bold text-green-800" id="modalProductName">Produce Name</p>
+                <p class="text-sm text-green-600">Available: <span id="modalProductQty"></span></p>
+                <p class="text-sm font-bold text-gray-700 mt-1">Price: Ksh <span id="modalProductPrice"></span> / <span class="unit-label"></span></p>
+            </div>
+
+            <form id="orderForm" method="POST" action="" class="flex flex-col gap-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div>
+                    <label class="text-xs font-bold text-gray-600 uppercase">Quantity You Want</label>
+                    <div class="flex items-center gap-2 mt-1">
+                        <input type="number" name="qty" id="orderQtyInput" placeholder="Enter qty" required min="1" step="0.1" class="w-full p-3 border rounded-lg bg-gray-50 text-lg font-bold">
+                        <span class="text-gray-500 font-bold unit-label bg-gray-100 p-3 rounded-lg border">Unit</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-green-600 text-white p-4 rounded-xl font-bold text-lg mt-2 active:bg-green-700 shadow-lg">Confirm Order</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+</style>
+
+<script>
+    function openOrderModal(id, name, maxQty, unit, price) {
+        // Populate modal data
+        document.getElementById('modalProductName').innerText = name;
+        document.getElementById('modalProductQty').innerText = maxQty + ' ' + unit;
+        document.getElementById('modalProductPrice').innerText = price;
+
+        // Update units globally in modal
+        document.querySelectorAll('.unit-label').forEach(el => el.innerText = unit);
+
+        // Setup form logic
+        document.getElementById('orderQtyInput').max = maxQty;
+        document.getElementById('orderForm').action = '/order/' + id;
+
+        // Show modal
+        const modal = document.getElementById('orderModal');
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeOrderModal() {
+        document.getElementById('orderModal').classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+</script>
+{% endblock %}

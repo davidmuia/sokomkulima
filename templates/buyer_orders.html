@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-1">My Orders 🛍️</h2>
+    <p class="text-sm text-gray-500">Track your purchases and connect with farmers.</p>
+</div>
+
+<!-- TAB NAVIGATION -->
+<div class="flex space-x-2 bg-gray-200 p-1 rounded-lg mb-6 overflow-x-auto hide-scrollbar">
+    <button onclick="switchTab('active')" id="tab-btn-active" class="flex-1 py-2 px-4 rounded-md font-bold text-sm transition-colors bg-white shadow text-blue-700">📦 Active Orders</button>
+    <button onclick="switchTab('history')" id="tab-btn-history" class="flex-1 py-2 px-4 rounded-md font-bold text-sm transition-colors text-gray-600">📜 History</button>
+</div>
+
+<!-- TAB 1: ACTIVE ORDERS -->
+<div id="tab-active" class="tab-content">
+    <div class="space-y-3">
+        {% for order in active_orders %}
+        <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 {% if order.status == 'Accepted' %}border-green-500{% else %}border-yellow-400{% endif %}">
+
+            <!-- Top Row: Produce & Status -->
+            <div class="flex justify-between items-center mb-1">
+                <h3 class="font-bold text-base text-gray-800">
+                    {{ order.produce.name }}
+                    <span class="text-sm font-normal text-gray-500 ml-1">({{ order.qty_requested }} {{ order.produce.unit }})</span>
+                </h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide
+                    {% if order.status == 'Accepted' %}bg-green-100 text-green-700{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                    {{ order.status }}
+                </span>
+            </div>
+
+            <!-- Bottom Row: Farmer Details & Date -->
+            <div class="flex justify-between items-end mt-2 pt-2 border-t border-gray-50">
+                <div class="text-xs text-gray-600">
+                    <p class="mb-0.5">🧑‍🌾 <span class="font-semibold text-gray-800">{{ order.produce.farmer.name }}</span></p>
+
+                    {% if order.status == 'Accepted' %}
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="font-bold text-blue-700">📞 {{ order.produce.farmer.phone }}</span>
+                            <a href="tel:{{ order.produce.farmer.phone }}" class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-2 py-0.5 rounded border border-blue-200 font-semibold transition-colors">Call</a>
+                        </div>
+                    {% else %}
+                        <p class="text-gray-400 italic">📞 Hidden until accepted</p>
+                    {% endif %}
+                </div>
+
+                <p class="text-[10px] text-gray-400">{{ order.date_ordered.strftime('%d %b, %Y') }}</p>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center p-6 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50">
+            <p class="text-3xl mb-1">🛒</p>
+            <p class="text-sm">You have no active orders.</p>
+            <a href="/marketplace" class="text-blue-600 font-bold mt-2 block text-sm hover:underline">Go to Market</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- TAB 2: ORDER HISTORY (Card layout) -->
+<div id="tab-history" class="tab-content hidden">
+    <!-- Filters -->
+    <div class="bg-white p-4 rounded-xl shadow-sm mb-4 border border-gray-100">
+        <form method="GET" action="/buyer_orders" class="flex flex-col gap-3">
+            <input type="hidden" name="tab" value="history">
+            <input type="text" name="q" placeholder="Search produce..." value="{{ request.args.get('q', '') }}" class="p-3 bg-gray-50 border rounded-lg text-sm">
+            <div class="flex gap-2">
+                <input type="date" name="start_date" value="{{ request.args.get('start_date', '') }}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm text-gray-600">
+                <input type="date" name="end_date" value="{{ request.args.get('end_date', '') }}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm text-gray-600">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-gray-800 text-white py-2 rounded-lg font-bold text-sm">Filter History</button>
+                <a href="/buyer_orders?tab=history" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm text-center">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- History Cards -->
+    <div class="space-y-3">
+        {% for order in history_orders %}
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center opacity-75">
+            <div>
+                <p class="font-bold text-gray-800">{{ order.produce.name }} <span class="text-gray-500 font-normal">({{ order.qty_requested }}{{ order.produce.unit }})</span></p>
+                <p class="text-sm text-gray-500">From: {{ order.produce.farmer.name }}</p>
+                <p class="text-xs text-gray-400">{{ order.date_ordered.strftime('%d %b, %Y') }}</p>
+            </div>
+            <div>
+                <span class="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                    {{ order.status }}
+                </span>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-center text-gray-500 py-4">No past orders match your search.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    // Tab switching logic reused from Farmer side
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => {
+            btn.classList.remove('bg-white', 'shadow', 'text-blue-700');
+            btn.classList.add('text-gray-600');
+        });
+        document.getElementById('tab-' + tabId).classList.remove('hidden');
+        let activeBtn = document.getElementById('tab-btn-' + tabId);
+        activeBtn.classList.remove('text-gray-600');
+        activeBtn.classList.add('bg-white', 'shadow', 'text-blue-700');
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        let activeTab = "{{ active_tab }}";
+        switchTab(activeTab);
+    });
+</script>
+
+{% endblock %}

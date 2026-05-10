@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block content %}
+
+
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Hello, {{ current_user.name }} 👋</h2>
+    <div class="grid grid-cols-3 gap-3">
+        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 text-center">
+            <p class="text-xs text-gray-500 uppercase font-bold">Active Listings</p>
+            <p class="text-2xl font-black text-green-600">{{ stats.active_produce }}</p>
+        </div>
+        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 text-center">
+            <p class="text-xs text-gray-500 uppercase font-bold">Pending Orders</p>
+            <p class="text-2xl font-black {% if stats.pending_count > 0 %}text-yellow-500{% else %}text-gray-400{% endif %}">
+                {{ stats.pending_count }}
+            </p>
+        </div>
+        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 text-center">
+            <p class="text-xs text-gray-500 uppercase font-bold">Est. Sales</p>
+            <p class="text-lg font-black text-blue-600 mt-1">Ksh {{ "{:,.0f}".format(stats.total_sales) }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- TAB NAVIGATION -->
+<div class="flex space-x-2 bg-gray-200 p-1 rounded-lg mb-6 overflow-x-auto hide-scrollbar">
+    <button onclick="switchTab('produce')" id="tab-btn-produce" class="flex-1 py-2 px-4 rounded-md font-bold text-sm transition-colors bg-white shadow text-green-700">📦 My Produce</button>
+    <button onclick="switchTab('pending')" id="tab-btn-pending" class="flex-1 py-2 px-4 rounded-md font-bold text-sm transition-colors text-gray-600">🔔 Action Needed</button>
+    <button onclick="switchTab('history')" id="tab-btn-history" class="flex-1 py-2 px-4 rounded-md font-bold text-sm transition-colors text-gray-600">📜 History</button>
+</div>
+
+<!-- TAB 1: MY PRODUCE -->
+<div id="tab-produce" class="tab-content">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-800">Available Stock</h3>
+        <button onclick="toggleModal('addProduceModal')" class="bg-green-600 text-white px-4 py-2 rounded-full font-bold text-sm shadow-md hover:bg-green-700 flex items-center gap-1">
+            ➕ Add Produce
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for item in produce %}
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+            <div>
+                <h4 class="font-bold text-lg">{{ item.name }}</h4>
+                <p class="text-gray-500 text-sm">{{ item.quantity }} {{ item.unit }} @ Ksh {{ item.price }}</p>
+                <p class="text-xs mt-1 {% if item.status == 'Active' %}text-green-500{% else %}text-red-500{% endif %} font-bold">• {{ item.status }}</p>
+            </div>
+
+        </div>
+        {% else %}
+        <div class="bg-gray-50 p-8 rounded-xl text-center border-2 border-dashed border-gray-300 col-span-full">
+            <p class="text-gray-500 mb-2">You haven't posted anything yet.</p>
+            <button onclick="toggleModal('addProduceModal')" class="text-green-600 font-bold underline">Post your first produce</button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="tab-pending" class="tab-content hidden">
+
+    <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+        📥 New Requests
+        {% if pending|length > 0 %}<span class="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">{{ pending|length }}</span>{% endif %}
+    </h3>
+    <div class="space-y-4 mb-8">
+        {% for order in pending %}
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-400">
+            <div class="flex justify-between mb-1">
+                <span class="text-xs font-bold text-gray-400">{{ order.date_ordered.strftime('%d %b, %Y') }}</span>
+                <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold">Needs Action</span>
+            </div>
+            <p class="font-bold text-lg">{{ order.buyer.name }} wants <span class="text-green-600">{{ order.qty_requested }} {{ order.produce.unit }}</span> of {{ order.produce.name }}</p>
+            <p class="text-gray-600 text-sm mb-3">📞 {{ order.buyer.phone }}</p>
+
+            <div class="flex gap-2">
+                <form method="POST" action="/update_order/{{ order.id }}" class="flex-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="status" value="Accepted">
+                    <button class="w-full bg-green-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-600">✅ Accept Order</button>
+                </form>
+                <form method="POST" action="/update_order/{{ order.id }}" class="flex-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="status" value="Rejected">
+                    <button class="w-full bg-red-100 text-red-600 py-2 rounded-lg font-bold text-sm hover:bg-red-200">❌ Reject</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center p-6 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-400 text-sm">
+            No new requests right now.
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- SECTION B: IN PROGRESS (Mark as Sold / Cancel) -->
+    <h3 class="text-lg font-bold text-gray-800 mb-3">🚚 In Progress (Accepted)</h3>
+    <div class="space-y-4 mb-4">
+        {% for order in accepted %}
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-blue-200 bg-blue-50">
+            <p class="font-bold text-lg">{{ order.buyer.name }} <span class="text-gray-500 text-sm font-normal">({{ order.qty_requested }} {{ order.produce.unit }} of {{ order.produce.name }})</span></p>
+            <p class="text-blue-800 font-bold text-sm mb-3 flex items-center gap-2 mt-1">
+                📞 {{ order.buyer.phone }}
+                <a href="tel:{{ order.buyer.phone }}" class="bg-blue-200 text-blue-800 px-2 py-1 rounded text-xs border border-blue-300">Call Buyer</a>
+            </p>
+
+            <p class="text-xs text-gray-600 mb-2 italic">⚠️ Stock is still visible on the market. Click 'Mark as Sold' when payment is received to deduct inventory.</p>
+
+            <div class="flex gap-2">
+                <form method="POST" action="/update_order/{{ order.id }}" class="flex-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="status" value="Completed">
+                    <button class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-blue-700">☑️ Mark as Sold</button>
+                </form>
+                <form method="POST" action="/update_order/{{ order.id }}" class="flex-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="status" value="Cancelled">
+                    <button onclick="return confirm('Cancel this deal?');" class="w-full bg-white border border-red-300 text-red-600 py-2 rounded-lg font-bold text-sm hover:bg-red-50">❌ Cancel Deal</button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center p-6 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-400 text-sm">
+            No accepted orders pending completion.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="tab-history" class="tab-content hidden">
+    <div class="bg-white p-4 rounded-xl shadow-sm mb-4 border border-gray-100">
+        <form method="GET" action="/dashboard" class="flex flex-col gap-3">
+            <input type="hidden" name="tab" value="history">
+            <input type="text" name="buyer_name" placeholder="Search buyer name..." value="{{ request.args.get('buyer_name', '') }}" class="p-3 bg-gray-50 border rounded-lg text-sm">
+            <div class="flex gap-2">
+                <div class="flex-1">
+                    <label class="text-xs text-gray-500 font-bold">From</label>
+                    <input type="date" name="start_date" value="{{ request.args.get('start_date', '') }}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm">
+                </div>
+                <div class="flex-1">
+                    <label class="text-xs text-gray-500 font-bold">To</label>
+                    <input type="date" name="end_date" value="{{ request.args.get('end_date', '') }}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-2">
+                <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Apply Filters</button>
+                <a href="/dashboard?tab=history" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm text-center">Clear</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="space-y-3">
+        {% for order in history %}
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+            <div>
+                <p class="font-bold text-gray-800">{{ order.produce.name }} <span class="text-gray-500 font-normal">({{ order.qty_requested }}{{ order.produce.unit }})</span></p>
+                <p class="text-sm text-gray-500">🧑‍💼 {{ order.buyer.name }}</p>
+                <p class="text-xs text-gray-400">{{ order.date_ordered.strftime('%d %b, %Y') }}</p>
+            </div>
+            <div>
+                <span class="px-3 py-1 rounded-full text-xs font-bold
+                    {% if order.status == 'Accepted' %}bg-green-100 text-green-700
+                    {% else %}bg-red-100 text-red-700{% endif %}">
+                    {{ order.status }}
+                </span>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-center text-gray-500 py-4">No history matches your search.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- FULL SCREEN MODAL: ADD PRODUCE -->
+<div id="addProduceModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-end md:items-center justify-center transition-opacity">
+    <div class="bg-white w-full md:w-96 rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
+        <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+            <h3 class="font-bold text-lg">Post New Produce</h3>
+            <button onclick="toggleModal('addProduceModal')" class="text-gray-500 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center font-bold text-xl">&times;</button>
+        </div>
+        <div class="p-5">
+            <form method="POST" action="/add_produce" class="flex flex-col gap-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div>
+                    <label class="text-xs font-bold text-gray-600 uppercase">Produce Name</label>
+                    <input type="text" name="name" placeholder="e.g. Onions" required class="w-full p-3 border rounded-lg bg-gray-50 mt-1">
+                </div>
+
+                <div class="flex gap-2">
+                    <div class="w-1/2">
+                        <label class="text-xs font-bold text-gray-600 uppercase">Quantity</label>
+                        <input type="number" name="quantity" placeholder="0" required class="w-full p-3 border rounded-lg bg-gray-50 mt-1">
+                    </div>
+                    <div class="w-1/2">
+                        <label class="text-xs font-bold text-gray-600 uppercase">Unit</label>
+                        <select name="unit" class="w-full p-3 border rounded-lg bg-gray-50 mt-1">
+                            <option>Bags</option><option>Kgs</option><option>Tonnes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-gray-600 uppercase">Price per Unit (Ksh)</label>
+                    <input type="number" name="price" placeholder="e.g. 500" required class="w-full p-3 border rounded-lg bg-gray-50 mt-1">
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-gray-600 uppercase">Available Date</label>
+                    <input type="date" name="date_available" required class="w-full p-3 border rounded-lg bg-gray-50 mt-1">
+                </div>
+
+                <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                    <input type="checkbox" name="delivery" class="w-5 h-5 text-green-600 rounded">
+                    <span class="font-medium text-gray-700">I can deliver this to the buyer</span>
+                </label>
+
+                <button type="submit" class="w-full bg-green-600 text-white p-4 rounded-xl font-bold text-lg mt-2 active:bg-green-700 shadow-lg">Post to Market</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Simple animation for the bottom-sheet modal */
+    @keyframes slideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+    .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+</style>
+
+<script>
+    // Tab switching logic
+    function switchTab(tabId) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+
+        // Reset all buttons styling
+        document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => {
+            btn.classList.remove('bg-white', 'shadow', 'text-green-700');
+            btn.classList.add('text-gray-600');
+        });
+
+        // Show active tab
+        document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+        // Style active button
+        let activeBtn = document.getElementById('tab-btn-' + tabId);
+        activeBtn.classList.remove('text-gray-600');
+        activeBtn.classList.add('bg-white', 'shadow', 'text-green-700');
+    }
+
+    // Modal toggle logic
+    function toggleModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal.classList.contains('hidden')) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    // Read the active tab from the URL (passed from Flask) and open it on load
+    document.addEventListener("DOMContentLoaded", () => {
+        let activeTab = "{{ active_tab }}";
+        switchTab(activeTab);
+    });
+</script>
+
+{% endblock %}

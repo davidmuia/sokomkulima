@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="flex flex-col md:flex-row gap-8 mt-4">
+    <div class="bg-white p-6 rounded-lg shadow-md flex-1">
+        <h2 class="text-2xl font-bold mb-4">Login (Ingia)</h2>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="tel" name="phone" placeholder="Phone Number" required class="w-full p-3 mb-4 border rounded text-lg">
+            <input type="password" name="password" placeholder="Password" required class="w-full p-3 mb-4 border rounded text-lg">
+            <button class="w-full bg-green-600 text-white p-3 rounded text-lg font-bold">Login</button>
+        </form>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md flex-1">
+        <h2 class="text-2xl font-bold mb-4">Register (Jisajili)</h2>
+        <form method="POST" action="/register">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="name" placeholder="Full Name / Farm Name" required class="w-full p-3 mb-4 border rounded">
+            <input type="tel" name="phone" placeholder="Phone Number" required class="w-full p-3 mb-4 border rounded">
+            <select name="location" required class="w-full p-3 mb-4 border rounded bg-white text-lg">
+            <option value="" disabled selected>Select Location / County</option>
+            {% for county in counties %}
+                <option value="{{ county }}">{{ county }}</option>
+            {% endfor %}
+            </select>
+            <select name="role" class="w-full p-3 mb-4 border rounded bg-white text-lg">
+                <option value="" disabled selected>I am a </option>
+                <option value="farmer">Farmer (Sells Produce)</option>
+                <option value="buyer">Buyer (Buys Produce)</option>
+            </select>
+            <input type="password" name="password" placeholder="Create Password" required class="w-full p-3 mb-4 border rounded">
+            <button class="w-full bg-blue-600 text-white p-3 rounded text-lg font-bold">Create Account</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
